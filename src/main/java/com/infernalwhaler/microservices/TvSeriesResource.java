@@ -10,6 +10,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.faulttolerance.Fallback;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.ArrayList;
@@ -25,7 +26,7 @@ import java.util.List;
 public class TvSeriesResource {
 
     @RestClient
-    TvSeriesProxy proxy;
+    TvSeriesProxy tvSeriesProxy;
 
     @RestClient
     EpisodeProxy episodeProxy;
@@ -36,12 +37,33 @@ public class TvSeriesResource {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Response getTvSeries(@QueryParam("title") final String title) {
-        final TvSerie tvSerie = proxy.getTvSeries(title);
-        final List<Episode> episodes = episodeProxy.get(tvSerie.getId());
+        final TvSerie tvSerie = this.getSeries(title);
+        final List<Episode> episodes = this.getEpisodes(tvSerie.getId());
 
         tvSerie.setEpisodes(episodes);
         tvSerieList.add(tvSerie);
         return Response.status(Response.Status.OK).entity(tvSerieList).build();
+    }
+
+    @Fallback(fallbackMethod = "fallbackGetSeries")
+    protected TvSerie getSeries(final String title) {
+        return tvSeriesProxy.getTvSeries(title);
+    }
+
+    @Fallback(fallbackMethod = "fallbackGetEpisodes")
+    protected List<Episode> getEpisodes(final Long id) {
+        return episodeProxy.get(id);
+    }
+
+    private TvSerie fallbackGetSeries(final String title) {
+        var tvSeries = new TvSerie();
+        tvSeries.setId(1L);
+        tvSeries.setName(title);
+        return tvSeries;
+    }
+
+    private List<Episode> fallbackGetEpisodes(final Long id) {
+        return new ArrayList<>();
     }
 
 }
